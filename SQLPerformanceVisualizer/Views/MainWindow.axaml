@@ -1,0 +1,201 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:SQLPerformanceVisualizer.ViewModels"
+        xmlns:m="using:SQLPerformanceVisualizer.Models"
+        xmlns:converters="using:SQLPerformanceVisualizer.Converters"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="1300" d:DesignHeight="780"
+        x:Class="SQLPerformanceVisualizer.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Icon="/Assets/avalonia-logo.ico"
+        Title="SQL Performance Visualizer"
+        Width="1300" Height="780"
+        MinWidth="900" MinHeight="500">
+
+    <Grid RowDefinitions="Auto,*" Margin="8" RowSpacing="8">
+
+        <!-- ROW 0: Single-line top bar — connect + database picker -->
+        <Border Grid.Row="0" Background="#2D2D2D" CornerRadius="4" Padding="10,7">
+            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+
+                <TextBlock Text="SQL Server:" Foreground="#CCCCCC" VerticalAlignment="Center"/>
+                <TextBox Text="{Binding ConnectVm.ServerName}"
+                         PlaceholderText="localhost"
+                         Width="180"
+                         Background="#3C3C3C" Foreground="White"
+                         VerticalAlignment="Center"/>
+
+                <!-- Connection status indicator -->
+                <Ellipse Width="10" Height="10" Fill="#CC3333" VerticalAlignment="Center"
+                         IsVisible="{Binding ConnectVm.IsConnected, Converter={x:Static BoolConverters.Not}}"/>
+                <Ellipse Width="10" Height="10" Fill="#33BB33" VerticalAlignment="Center"
+                         IsVisible="{Binding ConnectVm.IsConnected}"/>
+
+                <Button Content="Connect"
+                        Command="{Binding ConnectVm.ConnectCommand}"
+                        IsEnabled="{Binding !ConnectVm.IsConnecting}"
+                        VerticalAlignment="Center"/>
+                <TextBlock Text="Connecting…" Foreground="#888" FontSize="11" VerticalAlignment="Center"
+                           IsVisible="{Binding ConnectVm.IsConnecting}"/>
+                <TextBlock Text="{Binding ConnectVm.ErrorMessage}" Foreground="#FF6B6B" FontSize="11"
+                           VerticalAlignment="Center"
+                           IsVisible="{Binding ConnectVm.ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+
+                <Rectangle Width="1" Height="20" Fill="#555" VerticalAlignment="Center" Margin="4,0"/>
+
+                <TextBlock Text="Database:" Foreground="#CCCCCC" VerticalAlignment="Center"/>
+                <ComboBox ItemsSource="{Binding DatabaseListVm.Databases}"
+                          SelectedItem="{Binding DatabaseListVm.SelectedDatabase}"
+                          MinWidth="200" MaxWidth="360"
+                          VerticalAlignment="Center">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="m:DatabaseInfo">
+                            <TextBlock Text="{Binding Name}"/>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+                <TextBlock Text="Loading…" Foreground="#888" FontSize="11" VerticalAlignment="Center"
+                           IsVisible="{Binding DatabaseListVm.IsLoading}"/>
+                <TextBlock Text="{Binding DatabaseListVm.ErrorMessage}" Foreground="#FF6B6B" FontSize="11"
+                           VerticalAlignment="Center"
+                           IsVisible="{Binding DatabaseListVm.ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+
+            </StackPanel>
+        </Border>
+
+        <!-- ROW 1: Three-column panels -->
+        <Grid Grid.Row="1" ColumnDefinitions="*,*,2*" ColumnSpacing="8">
+
+            <!-- Panel 3: Tables -->
+            <Border Grid.Column="0" Background="#2D2D2D" CornerRadius="4" Padding="8"
+                    DataContext="{Binding TableListVm}" x:DataType="vm:TableListViewModel">
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8" Margin="0,0,0,6">
+                        <TextBlock Text="Tables" FontWeight="SemiBold" Foreground="#CCCCCC" VerticalAlignment="Center"/>
+                        <TextBlock Text="Loading…" Foreground="#888" FontSize="11" VerticalAlignment="Center"
+                                   IsVisible="{Binding IsLoading}"/>
+                    </StackPanel>
+                    <TextBlock DockPanel.Dock="Bottom" Text="{Binding ErrorMessage}" Foreground="#FF6B6B" FontSize="11"
+                               IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                               TextWrapping="Wrap" Margin="0,4,0,0"/>
+                    <ListBox ItemsSource="{Binding Tables}"
+                             SelectedItem="{Binding SelectedTable}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="m:TableInfo">
+                                <TextBlock Text="{Binding FullName}" FontSize="12"/>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </DockPanel>
+            </Border>
+
+            <!-- Panel 4: Columns (ListBox with highlight support) -->
+            <Border Grid.Column="1" Background="#2D2D2D" CornerRadius="4" Padding="8"
+                    DataContext="{Binding ColumnListVm}" x:DataType="vm:ColumnListViewModel">
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8" Margin="0,0,0,4">
+                        <TextBlock Text="Columns" FontWeight="SemiBold" Foreground="#CCCCCC" VerticalAlignment="Center"/>
+                        <TextBlock Text="Loading…" Foreground="#888" FontSize="11" VerticalAlignment="Center"
+                                   IsVisible="{Binding IsLoading}"/>
+                    </StackPanel>
+                    <Grid DockPanel.Dock="Top" ColumnDefinitions="*,75,45" Margin="8,0,0,2">
+                        <TextBlock Grid.Column="0" Text="Column" Foreground="#888" FontSize="10"/>
+                        <TextBlock Grid.Column="1" Text="Type"   Foreground="#888" FontSize="10"/>
+                        <TextBlock Grid.Column="2" Text="Null"   Foreground="#888" FontSize="10"/>
+                    </Grid>
+                    <ListBox ItemsSource="{Binding Columns}"
+                             SelectedItem="{Binding SelectedColumn}"
+                             Background="Transparent"
+                             BorderThickness="0">
+                        <ListBox.Styles>
+                            <Style Selector="ListBoxItem">
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                <Setter Property="Padding" Value="4,1"/>
+                            </Style>
+                        </ListBox.Styles>
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:ColumnRow">
+                                <Border Background="{Binding IsHighlighted,
+                                            Converter={x:Static converters:HighlightBrushConverter.Instance}}"
+                                        HorizontalAlignment="Stretch"
+                                        Padding="0,1">
+                                    <Grid ColumnDefinitions="*,75,45">
+                                        <TextBlock Grid.Column="0" Text="{Binding Info.ColumnName}" FontSize="12"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding Info.DataTypeDisplay}" FontSize="12"/>
+                                        <TextBlock Grid.Column="2" Text="{Binding Info.IsNullable}" FontSize="12"/>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </DockPanel>
+            </Border>
+
+            <!-- Column 2: Indexes (top half) + Statistics (bottom half) -->
+            <Grid Grid.Column="2" RowDefinitions="*,*" RowSpacing="8">
+
+                <!-- Panel 5: Indexes -->
+                <Border Grid.Row="0" Background="#2D2D2D" CornerRadius="4" Padding="8"
+                        DataContext="{Binding IndexListVm}" x:DataType="vm:IndexListViewModel">
+                    <DockPanel>
+                        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8" Margin="0,0,0,6">
+                            <TextBlock Text="Indexes" FontWeight="SemiBold" Foreground="#CCCCCC" VerticalAlignment="Center"/>
+                            <TextBlock Text="Loading…" Foreground="#888" FontSize="11" VerticalAlignment="Center"
+                                       IsVisible="{Binding IsLoading}"/>
+                            <TextBlock Text="{Binding ErrorMessage}" Foreground="#FF6B6B" FontSize="11"
+                                       VerticalAlignment="Center" TextWrapping="Wrap"
+                                       IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                        </StackPanel>
+                        <DataGrid ItemsSource="{Binding Indexes}"
+                                  AutoGenerateColumns="False"
+                                  IsReadOnly="True"
+                                  CanUserResizeColumns="True"
+                                  GridLinesVisibility="Horizontal"
+                                  FontSize="12">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn     Header="Index Name"  Binding="{Binding IndexName}"       Width="*"/>
+                                <DataGridTextColumn     Header="Type"        Binding="{Binding IndexType}"       Width="100"/>
+                                <DataGridCheckBoxColumn Header="Unique"      Binding="{Binding IsUnique}"        Width="55"/>
+                                <DataGridCheckBoxColumn Header="PK"          Binding="{Binding IsPrimaryKey}"    Width="40"/>
+                                <DataGridTextColumn     Header="Key Columns" Binding="{Binding KeyColumns}"      Width="*"/>
+                                <DataGridTextColumn     Header="Included"    Binding="{Binding IncludedColumns}" Width="*"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </DockPanel>
+                </Border>
+
+                <!-- Panel 6: Statistics -->
+                <Border Grid.Row="1" Background="#2D2D2D" CornerRadius="4" Padding="8"
+                        DataContext="{Binding StatisticsVm}" x:DataType="vm:StatisticsViewModel">
+                    <DockPanel>
+                        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8" Margin="0,0,0,6">
+                            <TextBlock Text="Statistics" FontWeight="SemiBold" Foreground="#CCCCCC" VerticalAlignment="Center"/>
+                            <TextBlock Text="Loading…" Foreground="#888" FontSize="11" VerticalAlignment="Center"
+                                       IsVisible="{Binding IsLoading}"/>
+                            <TextBlock Text="{Binding ErrorMessage}" Foreground="#FF6B6B" FontSize="11"
+                                       VerticalAlignment="Center" TextWrapping="Wrap"
+                                       IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                        </StackPanel>
+                        <DataGrid ItemsSource="{Binding Statistics}"
+                                  SelectedItem="{Binding SelectedStatistic}"
+                                  AutoGenerateColumns="False"
+                                  IsReadOnly="True"
+                                  CanUserResizeColumns="True"
+                                  GridLinesVisibility="Horizontal"
+                                  FontSize="12">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Stat Name"    Binding="{Binding StatName}"              Width="*"/>
+                                <DataGridTextColumn Header="Last Updated" Binding="{Binding LastUpdated}"           Width="130"/>
+                                <DataGridTextColumn Header="Rows"         Binding="{Binding Rows}"                  Width="80"/>
+                                <DataGridTextColumn Header="Sampled %"    Binding="{Binding SamplingPercentText}"   Width="75"/>
+                                <DataGridTextColumn Header="Mod Count"    Binding="{Binding ModificationCounter}"   Width="80"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </DockPanel>
+                </Border>
+
+            </Grid>
+        </Grid>
+    </Grid>
+</Window>
