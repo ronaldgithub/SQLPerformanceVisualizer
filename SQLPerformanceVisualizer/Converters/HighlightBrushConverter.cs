@@ -7,7 +7,7 @@ namespace SQLPerformanceVisualizer.Converters;
 public class HighlightBrushConverter : IValueConverter
 {
     public static readonly HighlightBrushConverter Instance = new();
-    private static readonly IBrush HighlightBrush = new SolidColorBrush(Color.FromArgb(60, 0, 140, 255));
+    private static readonly IBrush HighlightBrush = new SolidColorBrush(Color.FromArgb(80, 255, 215, 0));
 
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
         value is true ? HighlightBrush : null;

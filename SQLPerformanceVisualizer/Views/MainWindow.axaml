@@ -35,12 +35,8 @@
                 <Button Content="Connect"
                         Command="{Binding ConnectVm.ConnectCommand}"
                         IsEnabled="{Binding !ConnectVm.IsConnecting}"
-                        VerticalAlignment="Center"/>
-                <TextBlock Text="Connecting…" Foreground="#888" FontSize="11" VerticalAlignment="Center"
-                           IsVisible="{Binding ConnectVm.IsConnecting}"/>
-                <TextBlock Text="{Binding ConnectVm.ErrorMessage}" Foreground="#FF6B6B" FontSize="11"
-                           VerticalAlignment="Center"
-                           IsVisible="{Binding ConnectVm.ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                        VerticalAlignment="Center"
+                        ToolTip.Tip="{Binding ConnectVm.ErrorMessage}"/>
 
                 <Rectangle Width="1" Height="20" Fill="#555" VerticalAlignment="Center" Margin="4,0"/>
 
@@ -64,79 +60,95 @@
             </StackPanel>
         </Border>
 
-        <!-- ROW 1: Three-column panels -->
-        <Grid Grid.Row="1" ColumnDefinitions="*,*,2*" ColumnSpacing="8">
+        <!-- ROW 1: Tabbed content -->
+        <TabControl Grid.Row="1">
 
-            <!-- Panel 3: Tables -->
-            <Border Grid.Column="0" Background="#2D2D2D" CornerRadius="4" Padding="8"
-                    DataContext="{Binding TableListVm}" x:DataType="vm:TableListViewModel">
-                <DockPanel>
-                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8" Margin="0,0,0,6">
-                        <TextBlock Text="Tables" FontWeight="SemiBold" Foreground="#CCCCCC" VerticalAlignment="Center"/>
-                        <TextBlock Text="Loading…" Foreground="#888" FontSize="11" VerticalAlignment="Center"
-                                   IsVisible="{Binding IsLoading}"/>
-                    </StackPanel>
-                    <TextBlock DockPanel.Dock="Bottom" Text="{Binding ErrorMessage}" Foreground="#FF6B6B" FontSize="11"
-                               IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                               TextWrapping="Wrap" Margin="0,4,0,0"/>
-                    <ListBox ItemsSource="{Binding Tables}"
-                             SelectedItem="{Binding SelectedTable}">
-                        <ListBox.ItemTemplate>
-                            <DataTemplate x:DataType="m:TableInfo">
-                                <TextBlock Text="{Binding FullName}" FontSize="12"/>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
-                </DockPanel>
-            </Border>
+            <!-- Tab: Tables (Tables + Columns side by side) -->
+            <TabItem Header="Tables">
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="8" Margin="0,8,0,0">
 
-            <!-- Panel 4: Columns (ListBox with highlight support) -->
-            <Border Grid.Column="1" Background="#2D2D2D" CornerRadius="4" Padding="8"
-                    DataContext="{Binding ColumnListVm}" x:DataType="vm:ColumnListViewModel">
-                <DockPanel>
-                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8" Margin="0,0,0,4">
-                        <TextBlock Text="Columns" FontWeight="SemiBold" Foreground="#CCCCCC" VerticalAlignment="Center"/>
-                        <TextBlock Text="Loading…" Foreground="#888" FontSize="11" VerticalAlignment="Center"
-                                   IsVisible="{Binding IsLoading}"/>
-                    </StackPanel>
-                    <Grid DockPanel.Dock="Top" ColumnDefinitions="*,75,45" Margin="8,0,0,2">
-                        <TextBlock Grid.Column="0" Text="Column" Foreground="#888" FontSize="10"/>
-                        <TextBlock Grid.Column="1" Text="Type"   Foreground="#888" FontSize="10"/>
-                        <TextBlock Grid.Column="2" Text="Null"   Foreground="#888" FontSize="10"/>
-                    </Grid>
-                    <ListBox ItemsSource="{Binding Columns}"
-                             SelectedItem="{Binding SelectedColumn}"
-                             Background="Transparent"
-                             BorderThickness="0">
-                        <ListBox.Styles>
-                            <Style Selector="ListBoxItem">
-                                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-                                <Setter Property="Padding" Value="4,1"/>
-                            </Style>
-                        </ListBox.Styles>
-                        <ListBox.ItemTemplate>
-                            <DataTemplate x:DataType="vm:ColumnRow">
-                                <Border Background="{Binding IsHighlighted,
-                                            Converter={x:Static converters:HighlightBrushConverter.Instance}}"
-                                        HorizontalAlignment="Stretch"
-                                        Padding="0,1">
-                                    <Grid ColumnDefinitions="*,75,45">
-                                        <TextBlock Grid.Column="0" Text="{Binding Info.ColumnName}" FontSize="12"/>
-                                        <TextBlock Grid.Column="1" Text="{Binding Info.DataTypeDisplay}" FontSize="12"/>
-                                        <TextBlock Grid.Column="2" Text="{Binding Info.IsNullable}" FontSize="12"/>
-                                    </Grid>
-                                </Border>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
-                </DockPanel>
-            </Border>
+                    <!-- Panel: Tables -->
+                    <Border Grid.Column="0" Background="#2D2D2D" CornerRadius="4" Padding="8"
+                            DataContext="{Binding TableListVm}" x:DataType="vm:TableListViewModel">
+                        <DockPanel>
+                            <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8" Margin="0,0,0,6">
+                                <TextBlock Text="Tables" FontWeight="SemiBold" Foreground="#CCCCCC" VerticalAlignment="Center"/>
+                                <TextBlock Text="Loading…" Foreground="#888" FontSize="11" VerticalAlignment="Center"
+                                           IsVisible="{Binding IsLoading}"/>
+                            </StackPanel>
+                            <Grid DockPanel.Dock="Top" ColumnDefinitions="*,65,65,65" ColumnSpacing="6" Margin="8,0,0,2">
+                                <TextBlock Grid.Column="0" Text="Table"      Foreground="#888" FontSize="10"/>
+                                <TextBlock Grid.Column="1" Text="Rows"       Foreground="#888" FontSize="10" HorizontalAlignment="Right"/>
+                                <TextBlock Grid.Column="2" Text="Data (MB)"  Foreground="#888" FontSize="10" HorizontalAlignment="Right"/>
+                                <TextBlock Grid.Column="3" Text="Index (MB)" Foreground="#888" FontSize="10" HorizontalAlignment="Right"/>
+                            </Grid>
+                            <TextBlock DockPanel.Dock="Bottom" Text="{Binding ErrorMessage}" Foreground="#FF6B6B" FontSize="11"
+                                       IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                       TextWrapping="Wrap" Margin="0,4,0,0"/>
+                            <ListBox ItemsSource="{Binding Tables}"
+                                     SelectedItem="{Binding SelectedTable}">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate x:DataType="m:TableInfo">
+                                        <Grid ColumnDefinitions="*,65,65,65" ColumnSpacing="6">
+                                            <TextBlock Grid.Column="0" Text="{Binding FullName}"        FontSize="12"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding RowCountDisplay}"  FontSize="12" HorizontalAlignment="Right"/>
+                                            <TextBlock Grid.Column="2" Text="{Binding DataSizeDisplay}"  FontSize="12" HorizontalAlignment="Right"/>
+                                            <TextBlock Grid.Column="3" Text="{Binding IndexSizeDisplay}" FontSize="12" HorizontalAlignment="Right"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </DockPanel>
+                    </Border>
 
-            <!-- Column 2: Indexes (top half) + Statistics (bottom half) -->
-            <Grid Grid.Column="2" RowDefinitions="*,*" RowSpacing="8">
+                    <!-- Panel: Columns (ListBox with highlight support) -->
+                    <Border Grid.Column="1" Background="#2D2D2D" CornerRadius="4" Padding="8"
+                            DataContext="{Binding ColumnListVm}" x:DataType="vm:ColumnListViewModel">
+                        <DockPanel>
+                            <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8" Margin="0,0,0,4">
+                                <TextBlock Text="Columns" FontWeight="SemiBold" Foreground="#CCCCCC" VerticalAlignment="Center"/>
+                                <TextBlock Text="Loading…" Foreground="#888" FontSize="11" VerticalAlignment="Center"
+                                           IsVisible="{Binding IsLoading}"/>
+                            </StackPanel>
+                            <Grid DockPanel.Dock="Top" ColumnDefinitions="*,75,45" Margin="8,0,0,2">
+                                <TextBlock Grid.Column="0" Text="Column" Foreground="#888" FontSize="10"/>
+                                <TextBlock Grid.Column="1" Text="Type"   Foreground="#888" FontSize="10"/>
+                                <TextBlock Grid.Column="2" Text="Null"   Foreground="#888" FontSize="10"/>
+                            </Grid>
+                            <ListBox ItemsSource="{Binding Columns}"
+                                     SelectedItem="{Binding SelectedColumn}"
+                                     Background="Transparent"
+                                     BorderThickness="0">
+                                <ListBox.Styles>
+                                    <Style Selector="ListBoxItem">
+                                        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                        <Setter Property="Padding" Value="4,1"/>
+                                    </Style>
+                                </ListBox.Styles>
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:ColumnRow">
+                                        <Border Background="{Binding IsHighlighted,
+                                                    Converter={x:Static converters:HighlightBrushConverter.Instance}}"
+                                                HorizontalAlignment="Stretch"
+                                                Padding="0,1">
+                                            <Grid ColumnDefinitions="*,75,45">
+                                                <TextBlock Grid.Column="0" Text="{Binding Info.ColumnName}" FontSize="12"/>
+                                                <TextBlock Grid.Column="1" Text="{Binding Info.DataTypeDisplay}" FontSize="12"/>
+                                                <TextBlock Grid.Column="2" Text="{Binding Info.IsNullableDisplay}" FontSize="12"/>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </DockPanel>
+                    </Border>
 
-                <!-- Panel 5: Indexes -->
-                <Border Grid.Row="0" Background="#2D2D2D" CornerRadius="4" Padding="8"
+                </Grid>
+            </TabItem>
+
+            <!-- Tab: Indexes -->
+            <TabItem Header="Indexes">
+                <Border Background="#2D2D2D" CornerRadius="4" Padding="8" Margin="0,8,0,0"
                         DataContext="{Binding IndexListVm}" x:DataType="vm:IndexListViewModel">
                     <DockPanel>
                         <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8" Margin="0,0,0,6">
@@ -147,55 +159,199 @@
                                        VerticalAlignment="Center" TextWrapping="Wrap"
                                        IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
                         </StackPanel>
-                        <DataGrid ItemsSource="{Binding Indexes}"
+                        <DataGrid Name="IndexesDataGrid"
+                                  ItemsSource="{Binding Indexes}"
                                   AutoGenerateColumns="False"
                                   IsReadOnly="True"
                                   CanUserResizeColumns="True"
                                   GridLinesVisibility="Horizontal"
                                   FontSize="12">
                             <DataGrid.Columns>
-                                <DataGridTextColumn     Header="Index Name"  Binding="{Binding IndexName}"       Width="*"/>
-                                <DataGridTextColumn     Header="Type"        Binding="{Binding IndexType}"       Width="100"/>
-                                <DataGridCheckBoxColumn Header="Unique"      Binding="{Binding IsUnique}"        Width="55"/>
-                                <DataGridCheckBoxColumn Header="PK"          Binding="{Binding IsPrimaryKey}"    Width="40"/>
-                                <DataGridTextColumn     Header="Key Columns" Binding="{Binding KeyColumns}"      Width="*"/>
-                                <DataGridTextColumn     Header="Included"    Binding="{Binding IncludedColumns}" Width="*"/>
+                                <DataGridTextColumn     Header="Index Name"  Binding="{Binding Info.IndexName}"        Width="*"/>
+                                <DataGridTemplateColumn Header="" Width="64">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate x:DataType="vm:IndexRow">
+                                            <Grid ColumnDefinitions="Auto,Auto">
+                                                <Button Grid.Column="0" Content="Rebuild" FontSize="10" Padding="6,2"
+                                                        IsEnabled="{Binding !IsBusy}"
+                                                        Command="{Binding #IndexesDataGrid.((vm:IndexListViewModel)DataContext).RebuildCommand}"
+                                                        CommandParameter="{Binding}"/>
+                                                <Ellipse Grid.Column="1" Width="8" Height="8" Fill="#E04040" Margin="4,0,0,0"
+                                                         VerticalAlignment="Center" IsVisible="{Binding IsBusy}"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTemplateColumn Header="" Width="80">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate x:DataType="vm:IndexRow">
+                                            <Grid ColumnDefinitions="Auto,Auto">
+                                                <Button Grid.Column="0" Content="Reorganize" FontSize="10" Padding="6,2"
+                                                        IsEnabled="{Binding !IsBusy}"
+                                                        Command="{Binding #IndexesDataGrid.((vm:IndexListViewModel)DataContext).ReorganizeCommand}"
+                                                        CommandParameter="{Binding}"/>
+                                                <Ellipse Grid.Column="1" Width="8" Height="8" Fill="#E04040" Margin="4,0,0,0"
+                                                         VerticalAlignment="Center" IsVisible="{Binding IsBusy}"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTextColumn     Header="Type"          Binding="{Binding Info.IndexTypeDisplay}"     Width="100"/>
+                                <DataGridTextColumn     Header="Pages"         Binding="{Binding Info.PagesDisplay}"         Width="80"/>
+                                <DataGridTextColumn     Header="Size (MB)"     Binding="{Binding Info.SizeMBDisplay}"        Width="80"/>
+                                <DataGridTextColumn     Header="Fragmentation %" Binding="{Binding Info.FragmentationDisplay}" Width="110"/>
+                                <DataGridCheckBoxColumn Header="Unique"        Binding="{Binding Info.IsUnique}"             Width="55"/>
+                                <DataGridCheckBoxColumn Header="PK"            Binding="{Binding Info.IsPrimaryKey}"         Width="40"/>
+                                <DataGridTextColumn     Header="Key Columns"   Binding="{Binding Info.KeyColumns}"           Width="*"/>
+                                <DataGridTextColumn     Header="Included"      Binding="{Binding Info.IncludedColumns}"      Width="*"/>
                             </DataGrid.Columns>
                         </DataGrid>
                     </DockPanel>
                 </Border>
+            </TabItem>
 
-                <!-- Panel 6: Statistics -->
-                <Border Grid.Row="1" Background="#2D2D2D" CornerRadius="4" Padding="8"
-                        DataContext="{Binding StatisticsVm}" x:DataType="vm:StatisticsViewModel">
-                    <DockPanel>
-                        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8" Margin="0,0,0,6">
-                            <TextBlock Text="Statistics" FontWeight="SemiBold" Foreground="#CCCCCC" VerticalAlignment="Center"/>
-                            <TextBlock Text="Loading…" Foreground="#888" FontSize="11" VerticalAlignment="Center"
-                                       IsVisible="{Binding IsLoading}"/>
-                            <TextBlock Text="{Binding ErrorMessage}" Foreground="#FF6B6B" FontSize="11"
-                                       VerticalAlignment="Center" TextWrapping="Wrap"
-                                       IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
-                        </StackPanel>
-                        <DataGrid ItemsSource="{Binding Statistics}"
-                                  SelectedItem="{Binding SelectedStatistic}"
-                                  AutoGenerateColumns="False"
-                                  IsReadOnly="True"
-                                  CanUserResizeColumns="True"
-                                  GridLinesVisibility="Horizontal"
-                                  FontSize="12">
-                            <DataGrid.Columns>
-                                <DataGridTextColumn Header="Stat Name"    Binding="{Binding StatName}"              Width="*"/>
-                                <DataGridTextColumn Header="Last Updated" Binding="{Binding LastUpdated}"           Width="130"/>
-                                <DataGridTextColumn Header="Rows"         Binding="{Binding Rows}"                  Width="80"/>
-                                <DataGridTextColumn Header="Sampled %"    Binding="{Binding SamplingPercentText}"   Width="75"/>
-                                <DataGridTextColumn Header="Mod Count"    Binding="{Binding ModificationCounter}"   Width="80"/>
-                            </DataGrid.Columns>
-                        </DataGrid>
-                    </DockPanel>
-                </Border>
+            <!-- Tab: Statistics -->
+            <TabItem Header="Statistics">
+                <Grid ColumnDefinitions="*,2*" ColumnSpacing="8" Margin="0,8,0,0">
 
-            </Grid>
-        </Grid>
+                    <!-- Panel: Statistics list -->
+                    <Border Grid.Column="0" Background="#2D2D2D" CornerRadius="4" Padding="8"
+                            DataContext="{Binding StatisticsVm}" x:DataType="vm:StatisticsViewModel">
+                        <DockPanel>
+                            <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8" Margin="0,0,0,6">
+                                <TextBlock Text="Statistics" FontWeight="SemiBold" Foreground="#CCCCCC" VerticalAlignment="Center"/>
+                                <TextBlock Text="Loading…" Foreground="#888" FontSize="11" VerticalAlignment="Center"
+                                           IsVisible="{Binding IsLoading}"/>
+                                <TextBlock Text="{Binding ErrorMessage}" Foreground="#FF6B6B" FontSize="11"
+                                           VerticalAlignment="Center" TextWrapping="Wrap"
+                                           IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                            </StackPanel>
+                            <DataGrid ItemsSource="{Binding Statistics}"
+                                      SelectedItem="{Binding SelectedStatistic}"
+                                      AutoGenerateColumns="False"
+                                      IsReadOnly="True"
+                                      CanUserResizeColumns="True"
+                                      GridLinesVisibility="Horizontal"
+                                      FontSize="12">
+                                <DataGrid.Columns>
+                                    <DataGridTemplateColumn Header="" Width="24">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate x:DataType="vm:StatisticRow">
+                                                <Ellipse Width="8" Height="8" Fill="#E04040"
+                                                         HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                         IsVisible="{Binding IsJustUpdated}"/>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTextColumn Header="Stat Name"    Binding="{Binding Info.StatName}"              Width="*"/>
+                                    <DataGridTextColumn Header="Last Updated" Binding="{Binding Info.LastUpdated}"           Width="130"/>
+                                    <DataGridTextColumn Header="Sampled %"    Binding="{Binding Info.SamplingPercentText}"   Width="75"/>
+                                    <DataGridTextColumn Header="Mod Count"    Binding="{Binding Info.ModificationCounter}"   Width="80"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </DockPanel>
+                    </Border>
+
+                    <!-- Panel: Statistic detail (DBCC SHOW_STATISTICS: header, density vector, histogram) -->
+                    <Border Grid.Column="1" Background="#2D2D2D" CornerRadius="4" Padding="8"
+                            DataContext="{Binding StatisticDetailVm}" x:DataType="vm:StatisticDetailViewModel">
+                        <DockPanel>
+                            <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,6">
+                                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
+                                    <TextBlock Text="Statistic Detail" FontWeight="SemiBold" Foreground="#CCCCCC" VerticalAlignment="Center"/>
+                                    <TextBlock Text="Loading…" Foreground="#888" FontSize="11" VerticalAlignment="Center"
+                                               IsVisible="{Binding IsLoading}"/>
+                                    <TextBlock Text="{Binding ErrorMessage}" Foreground="#FF6B6B" FontSize="11"
+                                               VerticalAlignment="Center" TextWrapping="Wrap"
+                                               IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                                </StackPanel>
+                                <Button Name="UpdateStatsButton" Grid.Column="1" Content="Update Stats"
+                                        Command="{Binding OpenUpdatePopupCommand}"
+                                        IsEnabled="{Binding CommandText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                                <Popup IsOpen="{Binding IsUpdatePopupOpen}" PlacementTarget="{Binding #UpdateStatsButton}"
+                                       Placement="BottomEdgeAlignedRight" IsLightDismissEnabled="True">
+                                    <Border Background="#3C3C3C" BorderBrush="#555" BorderThickness="1" CornerRadius="4" Padding="12">
+                                        <StackPanel Spacing="8" Width="260">
+                                            <TextBlock Text="Update Statistics" FontWeight="SemiBold" Foreground="#CCCCCC"/>
+                                            <TextBlock Text="{Binding UpdatePreviewText}" FontFamily="Consolas,monospace"
+                                                       Foreground="#CE9178" FontSize="11" TextWrapping="Wrap"/>
+                                            <RadioButton GroupName="UpdateMode" Content="Sample percent" IsChecked="{Binding UseSamplePercent}"/>
+                                            <StackPanel Orientation="Horizontal" Spacing="6" Margin="20,0,0,0"
+                                                        IsEnabled="{Binding UseSamplePercent}">
+                                                <TextBox Text="{Binding SamplePercentInput}" Width="60"/>
+                                                <TextBlock Text="%" VerticalAlignment="Center" Foreground="#CCCCCC"/>
+                                            </StackPanel>
+                                            <RadioButton GroupName="UpdateMode" Content="Full scan" IsChecked="{Binding UseFullScan}"/>
+                                            <TextBlock Text="{Binding UpdateErrorMessage}" Foreground="#FF6B6B" FontSize="11" TextWrapping="Wrap"
+                                                       IsVisible="{Binding UpdateErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                                            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                                                <Button Content="Cancel" Command="{Binding CancelUpdateCommand}"/>
+                                                <Button Content="Run" Command="{Binding RunUpdateStatisticsCommand}" IsEnabled="{Binding !IsUpdating}"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Border>
+                                </Popup>
+                            </Grid>
+
+                            <TextBlock DockPanel.Dock="Top" Text="{Binding CommandText}" FontFamily="Consolas,monospace"
+                                       Foreground="#CE9178" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8"/>
+
+                            <TextBlock DockPanel.Dock="Top" Text="Stat Header" Foreground="#888" FontSize="10" Margin="0,0,0,2"/>
+                            <DataGrid DockPanel.Dock="Top" Height="70"
+                                      ItemsSource="{Binding HeaderRow}"
+                                      AutoGenerateColumns="False"
+                                      IsReadOnly="True"
+                                      CanUserResizeColumns="True"
+                                      GridLinesVisibility="Horizontal"
+                                      FontSize="11" Margin="0,0,0,8">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Rows"             Binding="{Binding Rows}"                  Width="70"/>
+                                    <DataGridTextColumn Header="Rows Sampled"     Binding="{Binding RowsSampled}"           Width="90"/>
+                                    <DataGridTextColumn Header="Steps"            Binding="{Binding Steps}"                 Width="50"/>
+                                    <DataGridTextColumn Header="Density"          Binding="{Binding DensityDisplay}"        Width="80"/>
+                                    <DataGridTextColumn Header="Avg Key Len"      Binding="{Binding AverageKeyLengthDisplay}" Width="80"/>
+                                    <DataGridTextColumn Header="String Idx"       Binding="{Binding StringIndex}"           Width="70"/>
+                                    <DataGridTextColumn Header="Unfiltered Rows"  Binding="{Binding UnfilteredRows}"        Width="100"/>
+                                    <DataGridTextColumn Header="Filter Expression" Binding="{Binding FilterExpression}"     Width="*"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+
+                            <TextBlock DockPanel.Dock="Top" Text="Density Vector" Foreground="#888" FontSize="10" Margin="0,0,0,2"/>
+                            <DataGrid DockPanel.Dock="Top" Height="90"
+                                      ItemsSource="{Binding DensityVectors}"
+                                      AutoGenerateColumns="False"
+                                      IsReadOnly="True"
+                                      CanUserResizeColumns="True"
+                                      GridLinesVisibility="Horizontal"
+                                      FontSize="11" Margin="0,0,0,8">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="All Density" Binding="{Binding AllDensityDisplay}"  Width="100"/>
+                                    <DataGridTextColumn Header="Avg Length"  Binding="{Binding AverageLengthDisplay}" Width="90"/>
+                                    <DataGridTextColumn Header="Columns"     Binding="{Binding Columns}"           Width="*"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+
+                            <TextBlock DockPanel.Dock="Top" Text="Histogram" Foreground="#888" FontSize="10" Margin="0,0,0,2"/>
+                            <DataGrid ItemsSource="{Binding HistogramSteps}"
+                                      AutoGenerateColumns="False"
+                                      IsReadOnly="True"
+                                      CanUserResizeColumns="True"
+                                      GridLinesVisibility="Horizontal"
+                                      FontSize="12">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Range Hi Key"        Binding="{Binding RangeHiKey}"               Width="*"/>
+                                    <DataGridTextColumn Header="Range Rows"          Binding="{Binding RangeRowsDisplay}"          Width="90"/>
+                                    <DataGridTextColumn Header="Eq Rows"             Binding="{Binding EqRowsDisplay}"             Width="80"/>
+                                    <DataGridTextColumn Header="Distinct Range Rows" Binding="{Binding DistinctRangeRowsDisplay}"  Width="120"/>
+                                    <DataGridTextColumn Header="Avg Range Rows"      Binding="{Binding AvgRangeRowsDisplay}"       Width="100"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </DockPanel>
+                    </Border>
+
+                </Grid>
+            </TabItem>
+
+        </TabControl>
     </Grid>
 </Window>

@@ -8,6 +8,8 @@ public record ColumnInfo(
     int? NumericPrecision,
     int? NumericScale)
 {
+    public string IsNullableDisplay => IsNullable.ToLowerInvariant();
+
     public string DataTypeDisplay
     {
         get

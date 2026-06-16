@@ -1,6 +1,5 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
-using SQLPerformanceVisualizer.Models;
 using SQLPerformanceVisualizer.Services;
 
 namespace SQLPerformanceVisualizer.ViewModels;
@@ -9,8 +8,8 @@ public partial class StatisticsViewModel : ViewModelBase
 {
     private readonly ISqlServerService _service;
 
-    [ObservableProperty] private ObservableCollection<StatisticInfo> _statistics = [];
-    [ObservableProperty] private StatisticInfo? _selectedStatistic;
+    [ObservableProperty] private ObservableCollection<StatisticRow> _statistics = [];
+    [ObservableProperty] private StatisticRow? _selectedStatistic;
     [ObservableProperty] private bool _isLoading;
     [ObservableProperty] private string? _errorMessage;
 
@@ -32,10 +31,20 @@ public partial class StatisticsViewModel : ViewModelBase
         try
         {
             var items = await _service.GetStatisticsAsync(database, schema, table, _cts.Token);
-            Statistics = new ObservableCollection<StatisticInfo>(items);
+            Statistics = new ObservableCollection<StatisticRow>(items.Select(i => new StatisticRow(i)));
         }
         catch (OperationCanceledException) { }
         catch (Exception ex) { ErrorMessage = ex.Message; }
         finally { IsLoading = false; }
+    }
+
+    public void MarkJustUpdated(string statName)
+    {
+        foreach (var row in Statistics)
+            row.IsJustUpdated = false;
+        var match = Statistics.FirstOrDefault(r => r.Info.StatName == statName);
+        if (match is null) return;
+        match.IsJustUpdated = true;
+        SelectedStatistic = match;
     }
 }

@@ -10,6 +10,7 @@ public partial class MainWindowViewModel : ViewModelBase
     public ColumnListViewModel ColumnListVm { get; }
     public IndexListViewModel IndexListVm { get; }
     public StatisticsViewModel StatisticsVm { get; }
+    public StatisticDetailViewModel StatisticDetailVm { get; }
 
     public MainWindowViewModel(ISqlServerService service)
     {
@@ -19,6 +20,7 @@ public partial class MainWindowViewModel : ViewModelBase
         ColumnListVm = new ColumnListViewModel(service);
         IndexListVm = new IndexListViewModel(service);
         StatisticsVm = new StatisticsViewModel(service);
+        StatisticDetailVm = new StatisticDetailViewModel(service);
 
         ConnectVm.Connected += async (_, _) =>
             await DatabaseListVm.LoadAsync();
@@ -43,33 +45,38 @@ public partial class MainWindowViewModel : ViewModelBase
             var db = DatabaseListVm.SelectedDatabase;
             if (table is null || db is null) return;
             ColumnListVm.SelectedColumn = null;
-            IndexListVm.Indexes = [];
             await Task.WhenAll(
                 ColumnListVm.LoadAsync(db.Name, table.Schema, table.Name),
+                IndexListVm.LoadAsync(db.Name, table.Schema, table.Name),
                 StatisticsVm.LoadAsync(db.Name, table.Schema, table.Name));
         };
 
-        ColumnListVm.PropertyChanged += async (_, e) =>
-        {
-            if (e.PropertyName != nameof(ColumnListViewModel.SelectedColumn)) return;
-            var col = ColumnListVm.SelectedColumn;
-            var table = TableListVm.SelectedTable;
-            var db = DatabaseListVm.SelectedDatabase;
-            if (col is null || table is null || db is null) return;
-            await IndexListVm.LoadAsync(db.Name, table.Schema, table.Name, col.Info.ColumnName);
-        };
-
-        StatisticsVm.PropertyChanged += (_, e) =>
+        StatisticsVm.PropertyChanged += async (_, e) =>
         {
             if (e.PropertyName != nameof(StatisticsViewModel.SelectedStatistic)) return;
             var stat = StatisticsVm.SelectedStatistic;
             if (stat is null)
             {
                 ColumnListVm.ClearHighlight();
+                StatisticDetailVm.Clear();
                 return;
             }
-            var cols = stat.Columns.Split(',').Select(s => s.Trim()).Where(s => s.Length > 0);
+            var cols = stat.Info.Columns.Split(',').Select(s => s.Trim()).Where(s => s.Length > 0);
             ColumnListVm.HighlightColumns(cols);
+
+            var table = TableListVm.SelectedTable;
+            var db = DatabaseListVm.SelectedDatabase;
+            if (table is not null && db is not null)
+                await StatisticDetailVm.LoadAsync(db.Name, table.Schema, table.Name, stat.Info.StatName);
+        };
+
+        StatisticDetailVm.StatisticsUpdated += async (_, statName) =>
+        {
+            var table = TableListVm.SelectedTable;
+            var db = DatabaseListVm.SelectedDatabase;
+            if (table is null || db is null) return;
+            await StatisticsVm.LoadAsync(db.Name, table.Schema, table.Name);
+            StatisticsVm.MarkJustUpdated(statName);
         };
     }
 }
