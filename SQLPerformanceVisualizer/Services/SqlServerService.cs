@@ -299,6 +299,96 @@ public class SqlServerService : ISqlServerService
         await cmd.ExecuteNonQueryAsync(ct);
     }
 
+    public async Task<IReadOnlyList<QueryStoreQueryInfo>> GetQueryStoreTopQueriesAsync(string database, QueryStoreMetric metric, CancellationToken ct = default)
+    {
+        var orderBy = metric switch
+        {
+            QueryStoreMetric.TotalCpu => "SUM(rs.avg_cpu_time * rs.count_executions)",
+            QueryStoreMetric.LogicalReads => "SUM(rs.avg_logical_io_reads * rs.count_executions)",
+            QueryStoreMetric.ExecutionCount => "SUM(rs.count_executions)",
+            _ => "SUM(rs.avg_duration * rs.count_executions)",
+        };
+        var sql = $"""
+            IF (SELECT actual_state FROM sys.database_query_store_options) = 0
+                THROW 50001, 'Query Store is not enabled for this database.', 1;
+
+            SELECT TOP (25)
+                q.query_id,
+                p.plan_id,
+                qt.query_sql_text,
+                ISNULL(OBJECT_SCHEMA_NAME(q.object_id) + '.' + OBJECT_NAME(q.object_id), '') AS ObjectName,
+                SUM(rs.count_executions) AS Executions,
+                SUM(rs.avg_duration * rs.count_executions) / SUM(rs.count_executions) / 1000.0 AS AvgDurationMs,
+                SUM(rs.avg_cpu_time * rs.count_executions) / SUM(rs.count_executions) / 1000.0 AS AvgCpuMs,
+                SUM(rs.avg_logical_io_reads * rs.count_executions) / SUM(rs.count_executions) AS AvgLogicalReads,
+                MAX(rs.last_execution_time) AS LastExecution
+            FROM sys.query_store_query q
+            JOIN sys.query_store_query_text qt ON qt.query_text_id = q.query_text_id
+            JOIN sys.query_store_plan p ON p.query_id = q.query_id
+            JOIN sys.query_store_runtime_stats rs ON rs.plan_id = p.plan_id
+            GROUP BY q.query_id, p.plan_id, qt.query_sql_text, q.object_id
+            ORDER BY {orderBy} DESC
+            """;
+        var results = new List<QueryStoreQueryInfo>();
+        await using var conn = new SqlConnection(ConnectionStringForDb(database));
+        await conn.OpenAsync(ct);
+        await using var cmd = new SqlCommand(sql, conn);
+        await using var reader = await cmd.ExecuteReaderAsync(ct);
+        while (await reader.ReadAsync(ct))
+        {
+            results.Add(new QueryStoreQueryInfo(
+                QueryId: Convert.ToInt64(reader[0]),
+                PlanId: Convert.ToInt64(reader[1]),
+                SqlText: reader.GetString(2),
+                ObjectName: reader.GetString(3),
+                Executions: Convert.ToInt64(reader[4]),
+                AvgDurationMs: Convert.ToDouble(reader[5]),
+                AvgCpuMs: Convert.ToDouble(reader[6]),
+                AvgLogicalReads: Convert.ToDouble(reader[7]),
+                LastExecution: reader.IsDBNull(8) ? null : reader.GetValue(8) switch
+                {
+                    DateTimeOffset dto => dto.LocalDateTime,
+                    var v => Convert.ToDateTime(v, CultureInfo.InvariantCulture),
+                }));
+        }
+        return results;
+    }
+
+    public async Task<string> GetQueryStorePlanXmlAsync(string database, long planId, CancellationToken ct = default)
+    {
+        const string sql = "SELECT query_plan FROM sys.query_store_plan WHERE plan_id = @planId";
+        await using var conn = new SqlConnection(ConnectionStringForDb(database));
+        await conn.OpenAsync(ct);
+        await using var cmd = new SqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@planId", planId);
+        var result = await cmd.ExecuteScalarAsync(ct);
+        return result as string
+            ?? throw new InvalidOperationException($"No plan XML found in Query Store for plan_id {planId}.");
+    }
+
+    public async Task<string> ExecuteQueryCaptureActualPlanAsync(string database, string sqlText, CancellationToken ct = default)
+    {
+        await using var conn = new SqlConnection(ConnectionStringForDb(database));
+        await conn.OpenAsync(ct);
+        await using var cmd = new SqlCommand("SET STATISTICS XML ON;\n" + sqlText, conn) { CommandTimeout = 0 };
+        await using var reader = await cmd.ExecuteReaderAsync(ct);
+
+        string? planXml = null;
+        do
+        {
+            var isShowplan = reader.FieldCount == 1 &&
+                             reader.GetName(0).Contains("Showplan", StringComparison.OrdinalIgnoreCase);
+            while (await reader.ReadAsync(ct))
+            {
+                if (isShowplan)
+                    planXml = reader.GetString(0);
+            }
+        } while (await reader.NextResultAsync(ct));
+
+        return planXml
+            ?? throw new InvalidOperationException("The query executed but returned no execution plan.");
+    }
+
     private static bool HasColumn(SqlDataReader reader, string columnName)
     {
         for (var i = 0; i < reader.FieldCount; i++)

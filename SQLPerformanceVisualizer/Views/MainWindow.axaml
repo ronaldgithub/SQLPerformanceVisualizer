@@ -3,13 +3,14 @@
         xmlns:vm="using:SQLPerformanceVisualizer.ViewModels"
         xmlns:m="using:SQLPerformanceVisualizer.Models"
         xmlns:converters="using:SQLPerformanceVisualizer.Converters"
+        xmlns:controls="using:SQLPerformanceVisualizer.Controls"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d" d:DesignWidth="1300" d:DesignHeight="780"
         x:Class="SQLPerformanceVisualizer.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
         Icon="/Assets/avalonia-logo.ico"
-        Title="SQL Performance Visualizer"
+        Title="SQL Performance Visualizer — ronald.de.groot@opendata.nl"
         Width="1300" Height="780"
         MinWidth="900" MinHeight="500">
 
@@ -346,6 +347,134 @@
                                     <DataGridTextColumn Header="Avg Range Rows"      Binding="{Binding AvgRangeRowsDisplay}"       Width="100"/>
                                 </DataGrid.Columns>
                             </DataGrid>
+                        </DockPanel>
+                    </Border>
+
+                </Grid>
+            </TabItem>
+
+            <!-- Tab: AI (Query Store top queries + Claude plan analysis) -->
+            <TabItem Header="AI">
+                <Grid ColumnDefinitions="*,2*" ColumnSpacing="8" Margin="0,8,0,0">
+
+                    <!-- Panel: Query Store top queries -->
+                    <Border Grid.Column="0" Background="#2D2D2D" CornerRadius="4" Padding="8"
+                            DataContext="{Binding AiVm}" x:DataType="vm:AiViewModel">
+                        <DockPanel>
+                            <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8" Margin="0,0,0,6">
+                                <TextBlock Text="Query Store — Top Queries" FontWeight="SemiBold" Foreground="#CCCCCC" VerticalAlignment="Center"/>
+                                <ComboBox ItemsSource="{Binding Metrics}"
+                                          SelectedItem="{Binding SelectedMetric}"
+                                          MinWidth="140" FontSize="11" VerticalAlignment="Center">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate x:DataType="m:QueryStoreMetricItem">
+                                            <TextBlock Text="{Binding DisplayName}"/>
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                                <TextBlock Text="Loading…" Foreground="#888" FontSize="11" VerticalAlignment="Center"
+                                           IsVisible="{Binding IsLoading}"/>
+                                <TextBlock Text="{Binding ErrorMessage}" Foreground="#FF6B6B" FontSize="11"
+                                           VerticalAlignment="Center" TextWrapping="Wrap"
+                                           IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                            </StackPanel>
+                            <DataGrid ItemsSource="{Binding Queries}"
+                                      SelectedItem="{Binding SelectedQuery}"
+                                      AutoGenerateColumns="False"
+                                      IsReadOnly="True"
+                                      CanUserResizeColumns="True"
+                                      GridLinesVisibility="Horizontal"
+                                      FontSize="11">
+                                <DataGrid.Styles>
+                                    <Style Selector="DataGridCell.numeric TextBlock">
+                                        <Setter Property="HorizontalAlignment" Value="Right"/>
+                                    </Style>
+                                </DataGrid.Styles>
+                                <DataGrid.Columns>
+                                    <DataGridTemplateColumn Header="" Width="24">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate x:DataType="vm:QueryRow">
+                                                <Grid>
+                                                    <Ellipse Width="8" Height="8" Fill="#E04040"
+                                                             HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                             IsVisible="{Binding IsBusy}"/>
+                                                    <Ellipse Width="8" Height="8" Fill="#33BB33"
+                                                             HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                             IsVisible="{Binding IsAnalyzed}"/>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTextColumn Header="Id"        Binding="{Binding Info.QueryId}"                Width="Auto" CellStyleClasses="numeric"/>
+                                    <DataGridTextColumn Header="Query"     Binding="{Binding Info.SqlSnippet}"             Width="*"/>
+                                    <DataGridTextColumn Header="Execs"     Binding="{Binding Info.ExecutionsDisplay}"      Width="Auto" CellStyleClasses="numeric"/>
+                                    <DataGridTextColumn Header="Avg ms"    Binding="{Binding Info.AvgDurationDisplay}"     Width="Auto" CellStyleClasses="numeric"/>
+                                    <DataGridTextColumn Header="CPU ms"    Binding="{Binding Info.AvgCpuDisplay}"          Width="Auto" CellStyleClasses="numeric"/>
+                                    <DataGridTextColumn Header="Reads"     Binding="{Binding Info.AvgLogicalReadsDisplay}" Width="Auto" CellStyleClasses="numeric"/>
+                                    <DataGridTextColumn Header="Last Exec" Binding="{Binding Info.LastExecutionDisplay}"   Width="Auto"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </DockPanel>
+                    </Border>
+
+                    <!-- Panel: query detail + AI analysis report -->
+                    <Border Grid.Column="1" Background="#2D2D2D" CornerRadius="4" Padding="8"
+                            DataContext="{Binding AiVm}" x:DataType="vm:AiViewModel">
+                        <DockPanel>
+                            <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,6">
+                                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
+                                    <TextBlock Text="AI Plan Analysis" FontWeight="SemiBold" Foreground="#CCCCCC" VerticalAlignment="Center"/>
+                                    <ProgressBar IsIndeterminate="True" Width="110" Height="4" VerticalAlignment="Center"
+                                                 IsVisible="{Binding IsAnalyzing}"/>
+                                    <TextBlock Text="{Binding ElapsedText}" Foreground="#CCCCCC" FontSize="11" FontFamily="Consolas,monospace"
+                                               VerticalAlignment="Center"
+                                               IsVisible="{Binding ElapsedText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                                    <TextBlock Text="{Binding StatusText}" Foreground="#888" FontSize="11"
+                                               VerticalAlignment="Center" TextWrapping="Wrap"
+                                               IsVisible="{Binding StatusText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                                    <TextBlock Text="{Binding RunErrorMessage}" Foreground="#FF6B6B" FontSize="11"
+                                               VerticalAlignment="Center" TextWrapping="Wrap"
+                                               IsVisible="{Binding RunErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                                </StackPanel>
+                                <Button Name="RunAnalyzeButton" Grid.Column="1" Content="Execute + Analyze"
+                                        Command="{Binding OpenRunPopupCommand}"
+                                        IsEnabled="{Binding CanRun}"/>
+                                <Popup IsOpen="{Binding IsRunPopupOpen}" PlacementTarget="{Binding #RunAnalyzeButton}"
+                                       Placement="BottomEdgeAlignedRight" IsLightDismissEnabled="True">
+                                    <Border Background="#3C3C3C" BorderBrush="#555" BorderThickness="1" CornerRadius="4" Padding="12">
+                                        <StackPanel Spacing="8" Width="420">
+                                            <TextBlock Text="Execute query and analyze actual plan" FontWeight="SemiBold" Foreground="#CCCCCC"/>
+                                            <TextBlock Text="⚠ This runs the query below against the database for real — including any data modifications — and may take a long time. The actual plan is then saved and analyzed by Claude."
+                                                       Foreground="#E0A030" FontSize="11" TextWrapping="Wrap"/>
+                                            <Border Background="#2D2D2D" CornerRadius="4" Padding="6" MaxHeight="200">
+                                                <ScrollViewer>
+                                                    <SelectableTextBlock Text="{Binding SelectedSqlText}" FontFamily="Consolas,monospace"
+                                                                         Foreground="#CE9178" FontSize="11" TextWrapping="Wrap"/>
+                                                </ScrollViewer>
+                                            </Border>
+                                            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                                                <Button Content="Cancel" Command="{Binding CancelRunCommand}"/>
+                                                <Button Content="Run" Command="{Binding ConfirmRunCommand}" IsEnabled="{Binding !IsAnalyzing}"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Border>
+                                </Popup>
+                            </Grid>
+
+                            <TextBlock DockPanel.Dock="Top" Text="SQL" Foreground="#888" FontSize="10" Margin="0,0,0,2"/>
+                            <Border DockPanel.Dock="Top" Background="#252525" CornerRadius="4" Padding="6" Height="150" Margin="0,0,0,8">
+                                <ScrollViewer>
+                                    <SelectableTextBlock Text="{Binding SelectedSqlText}" FontFamily="Consolas,monospace"
+                                                         Foreground="#CE9178" FontSize="12" TextWrapping="Wrap"/>
+                                </ScrollViewer>
+                            </Border>
+
+                            <TextBlock DockPanel.Dock="Top" Text="AI Analysis Report" Foreground="#888" FontSize="10" Margin="0,0,0,2"/>
+                            <Border Background="#252525" CornerRadius="4" Padding="10,6">
+                                <ScrollViewer>
+                                    <controls:MarkdownViewer Markdown="{Binding AnalysisReport}"/>
+                                </ScrollViewer>
+                            </Border>
                         </DockPanel>
                     </Border>
 

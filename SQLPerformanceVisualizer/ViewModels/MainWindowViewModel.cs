@@ -11,8 +11,9 @@ public partial class MainWindowViewModel : ViewModelBase
     public IndexListViewModel IndexListVm { get; }
     public StatisticsViewModel StatisticsVm { get; }
     public StatisticDetailViewModel StatisticDetailVm { get; }
+    public AiViewModel AiVm { get; }
 
-    public MainWindowViewModel(ISqlServerService service)
+    public MainWindowViewModel(ISqlServerService service, IPlanAnalysisService planAnalysisService)
     {
         ConnectVm = new ConnectServerViewModel(service);
         DatabaseListVm = new DatabaseListViewModel(service);
@@ -21,6 +22,7 @@ public partial class MainWindowViewModel : ViewModelBase
         IndexListVm = new IndexListViewModel(service);
         StatisticsVm = new StatisticsViewModel(service);
         StatisticDetailVm = new StatisticDetailViewModel(service);
+        AiVm = new AiViewModel(service, planAnalysisService);
 
         ConnectVm.Connected += async (_, _) =>
             await DatabaseListVm.LoadAsync();
@@ -35,7 +37,9 @@ public partial class MainWindowViewModel : ViewModelBase
             IndexListVm.Indexes = [];
             StatisticsVm.SelectedStatistic = null;
             StatisticsVm.Statistics = [];
-            await TableListVm.LoadAsync(db.Name);
+            await Task.WhenAll(
+                TableListVm.LoadAsync(db.Name),
+                AiVm.LoadAsync(db.Name));
         };
 
         TableListVm.PropertyChanged += async (_, e) =>

@@ -15,4 +15,7 @@ public interface ISqlServerService
     Task UpdateStatisticsAsync(string database, string schema, string table, string statName, double? samplePercent, CancellationToken ct = default);
     Task RebuildIndexAsync(string database, string schema, string table, string indexName, CancellationToken ct = default);
     Task ReorganizeIndexAsync(string database, string schema, string table, string indexName, CancellationToken ct = default);
+    Task<IReadOnlyList<QueryStoreQueryInfo>> GetQueryStoreTopQueriesAsync(string database, QueryStoreMetric metric, CancellationToken ct = default);
+    Task<string> GetQueryStorePlanXmlAsync(string database, long planId, CancellationToken ct = default);
+    Task<string> ExecuteQueryCaptureActualPlanAsync(string database, string sqlText, CancellationToken ct = default);
 }

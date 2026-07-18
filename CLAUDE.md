@@ -23,11 +23,12 @@ dotnet run --project SQLPerformanceVisualizer
 
 ```text
 SQLPerformanceVisualizer/
+├── Controls/        — MarkdownViewer (dependency-free markdown renderer for AI reports; Markdown.Avalonia does NOT support Avalonia 12)
 ├── Converters/      — HighlightBrushConverter (bool → blue tint brush for column highlight)
-├── Models/          — plain C# records: DatabaseInfo, TableInfo, ColumnInfo, IndexInfo, StatisticInfo, StatisticDetailInfo (+ StatHeaderInfo/DensityVectorInfo/HistogramStepInfo)
-├── Services/        — ISqlServerService + SqlServerService (all SQL queries live here)
-├── ViewModels/      — one ViewModel per panel + ColumnRow/StatisticRow/IndexRow wrappers + MainWindowViewModel (coordinator)
-└── Views/           — MainWindow.axaml (single window, top bar + tabbed content: Tables / Indexes / Statistics)
+├── Models/          — plain C# records: DatabaseInfo, TableInfo, ColumnInfo, IndexInfo, StatisticInfo, StatisticDetailInfo (+ StatHeaderInfo/DensityVectorInfo/HistogramStepInfo), QueryStoreQueryInfo, QueryStoreMetric(+Item)
+├── Services/        — ISqlServerService + SqlServerService (all SQL queries live here); IPlanAnalysisService + PlanAnalysisService (all file I/O and Claude CLI process spawning — nowhere else)
+├── ViewModels/      — one ViewModel per panel + ColumnRow/StatisticRow/IndexRow/QueryRow wrappers + MainWindowViewModel (coordinator)
+└── Views/           — MainWindow.axaml (single window, top bar + tabbed content: Tables / Indexes / Statistics / AI)
 ```
 
 ## UI Layout
@@ -36,7 +37,7 @@ SQLPerformanceVisualizer/
 ┌──────────────────────────────────────────────────────────────────────┐
 │  SQL Server: [localhost] ● [Connect]   Database: [▼ combo]           │
 ├──────────────────────────────────────────────────────────────────────┤
-│  [ Tables ] [ Indexes ] [ Statistics ]                                │
+│  [ Tables ] [ Indexes ] [ Statistics ] [ AI ]                         │
 ├──────────────────────────────────────────────────────────────────────┤
 │  Tables tab:                                                          │
 │  ┌──────────────┬───────────────────────────────────────────────────┐│
@@ -62,6 +63,19 @@ SQLPerformanceVisualizer/
 │  │   columns)   │  full scan, then runs UPDATE STATISTICS on        ││
 │  │              │  just the selected stat.                         ││
 │  └──────────────┴───────────────────────────────────────────────────┘│
+│                                                                        │
+│  AI tab:                                                              │
+│  ┌──────────────┬───────────────────────────────────────────────────┐│
+│  │ Query Store  │  AI Plan Analysis      [Execute + Analyze]        ││
+│  │ top 25       │  SQL (full text of selected query, monospace)     ││
+│  │ queries      │  AI Analysis Report (markdown as plain text)      ││
+│  │ (metric      │                                                   ││
+│  │  dropdown;   │  Button opens a confirmation popup (query really  ││
+│  │  red dot =   │  runs!), then: capture actual plan → save files → ││
+│  │  running,    │  claude -p runs the query-plan-analysis skill →   ││
+│  │  green dot = │  report saved as .md + shown in the pane.         ││
+│  │  analyzed)   │                                                   ││
+│  └──────────────┴───────────────────────────────────────────────────┘│
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -82,6 +96,7 @@ SQLPerformanceVisualizer/
 ```text
 ConnectVm.Connected         → DatabaseListVm.LoadAsync()
 DatabaseListVm.Selected     → TableListVm.LoadAsync(db)
+                            → AiVm.LoadAsync(db)                       [parallel; Query Store is DB-scoped]
 TableListVm.Selected        → ColumnListVm.LoadAsync(db, schema, table)
                             → IndexListVm.LoadAsync(db, schema, table)    [parallel]
                             → StatisticsVm.LoadAsync(db, schema, table)   [parallel]
@@ -101,7 +116,21 @@ Auto-selection: first table is selected after load; first column is selected aft
 - `RebuildIndexAsync`/`ReorganizeIndexAsync`: run `ALTER INDEX [name] ON [schema].[table] REBUILD/REORGANIZE;`, scoped to one index, triggered directly from a per-row button (no confirmation popup, unlike Update Stats) — `IndexListViewModel` reloads the whole index list on success so Pages/Size/Fragmentation reflect the result immediately. `CommandTimeout = 0` since `REBUILD` on a large table can run long.
 - `GetStatisticDetailAsync`: runs `DBCC SHOW_STATISTICS (...) WITH STAT_HEADER, DENSITY_VECTOR, HISTOGRAM` and reads all 3 result sets off one `SqlDataReader` via `NextResultAsync`. DBCC doesn't support `@parameters` for its table/stat arguments, so the command text is built with `QuoteIdentifier`/`EscapeLiteral` helpers instead of string interpolation directly into SQL. Requires the connecting user to have at least `SELECT` permission on the table (SQL 2016 SP1+) or `ALTER`/`db_owner` on older versions — surfaced via the normal `ErrorMessage` pattern if permissions are insufficient, same as any other query. The "Updated" column in `STAT_HEADER` has been observed coming back as a string rather than a native `datetime` on some SQL Server versions — read defensively via `Convert.ToDateTime(value, CultureInfo.InvariantCulture)`, not `reader.GetDateTime`.
 - `UpdateStatisticsAsync`: runs `UPDATE STATISTICS [schema].[table] [statname] WITH SAMPLE x PERCENT;` or `WITH FULLSCAN;`, scoped to exactly the one statistic the user has selected (never the whole table). `CommandTimeout = 0` (no timeout) since `FULLSCAN` on a large table is expected to run long and is an explicit, user-triggered maintenance action.
+- `GetQueryStoreTopQueriesAsync`: first checks `sys.database_query_store_options.actual_state` and `THROW`s a friendly "Query Store is not enabled" error (surfaces via `ErrorMessage`). Then top 25 rows joining `sys.query_store_query/query_text/plan/runtime_stats`, grouped per `(query_id, plan_id)` — one row per plan. Averages are execution-weighted (`SUM(avg_x * count_executions) / SUM(count_executions)`); durations converted µs → ms. `ORDER BY` expression comes from a C# `switch` on `QueryStoreMetric` (never user input). `last_execution_time` is `datetimeoffset` — read via a type switch, not `GetDateTime`.
+- `ExecuteQueryCaptureActualPlanAsync`: prepends `SET STATISTICS XML ON;` to the Query Store SQL text and re-executes it for real (`CommandTimeout = 0`). Iterates all result sets; the showplan set has a single column whose name contains `Showplan` (full name: `Microsoft SQL Server 2005 XML Showplan`) — data rows are drained and discarded, the last plan XML wins. **Limitation**: auto-parameterized Query Store texts starting with `(@p1 ...)` fail with a syntax error when re-executed; the error surfaces in the popup's `RunErrorMessage`.
+- `GetQueryStorePlanXmlAsync`: fetches the *estimated* (compiled) plan XML for one `plan_id` from `sys.query_store_plan`.
 - Per-database queries swap `Database=master` → target DB via `Regex.Replace` in `ConnectionStringForDb`.
+
+## AI Tab / PlanAnalysisService
+
+- `PlanAnalysisService` owns all file I/O and process spawning; nothing else in the app touches `System.IO.File` or `Process`.
+- Plans and reports are saved to `Documents\SQLPerformanceVisualizer\plans\<database>\query_<queryid>_<yyyyMMdd_HHmmss>.sqlplan` (+ `.estimated.sqlplan` with the Query Store compiled plan, and the analysis as a matching `.md`). Database name is sanitized for invalid filename chars.
+- Analysis shells out to the Claude Code CLI headlessly: `claude -p "<prompt>" --output-format text --allowedTools Skill Read Glob Grep "Bash(python *)"`, working directory = the plans folder, prompt names the `query-plan-analysis` skill (erikdarling `sqlserver-query-plans` plugin) and the absolute plan path. stdout is the markdown report.
+- CLI resolution: probes `%USERPROFILE%\.local\bin` then every `PATH` entry for `claude.exe`/`claude.cmd`. A `.exe` is started directly; the npm `claude.cmd` shim must be launched via `cmd.exe /c` (CreateProcess can't run `.cmd` with `UseShellExecute=false`).
+- The tool allowlist is deliberately minimal — plan XML is untrusted input (the skill itself warns about this); never pass `--dangerously-skip-permissions`/`bypassPermissions` here.
+- Analysis is slow (minutes): the Run flow keeps per-row `IsBusy` (red dot) / `IsAnalyzed` (green dot) on `QueryRow`, stage progress in `StatusText` ("Step n/3 — …"), a live elapsed clock in `ElapsedText` (Avalonia `DispatcherTimer`, 1s tick — note the 3-arg ctor auto-starts the timer, so `Stop()` immediately after constructing), an indeterminate `ProgressBar` bound to `IsAnalyzing`, and errors in `RunErrorMessage` — the shared `ErrorMessage` is only for list loading.
+- The report is rendered by `Controls/MarkdownViewer` (custom `ContentControl` with a `Markdown` styled property): headings, bold/italic/inline code, fenced code blocks, lists, and pipe tables. Keep it dependency-free.
+- Numeric grid columns use `Width="Auto"` + `CellStyleClasses="numeric"` (right-aligns the cell `TextBlock` via a `DataGrid.Styles` selector `DataGridCell.numeric TextBlock`) — fixed widths truncated Dutch-formatted numbers mid-value, making the decimal comma look like a thousands comma. `QueryStoreQueryInfo.FormatMetric` shows whole numbers (`N0`, nl-NL) and only keeps one decimal below 10.
 
 ## Coding Conventions
 
@@ -110,6 +139,7 @@ Auto-selection: first table is selected after load; first column is selected aft
 - Connection strings always include `TrustServerCertificate=True` (required for SqlClient 4+).
 - Number formatting is split by purpose: row counts/sizes/fragmentation (`TableInfo.RowCountDisplay`/`DataSizeDisplay`/`IndexSizeDisplay`, `IndexInfo.PagesDisplay`/`SizeMBDisplay`/`FragmentationDisplay`) use a `nl-NL` (European) `CultureInfo` — period thousands separator, comma decimal — per explicit user preference; everything from DBCC/DMV detail output (`StatisticInfo.SamplingPercentText`, `StatHeaderInfo`, `DensityVectorInfo`, `HistogramStepInfo`) uses `CultureInfo.InvariantCulture` (period decimal). Don't assume one culture applies everywhere — check the model.
 - `DataTypeDisplay` on `ColumnInfo` appends `(n)` or `(max)` for string/binary types; `MaxLength = -1` means `MAX`.
+- The window `Title` deliberately includes the user's email (`SQL Performance Visualizer — ronald.de.groot@opendata.nl`) — keep it when editing `MainWindow.axaml`.
 - Raw SQL Server values that come back upper/mixed-case (`IS_NULLABLE` as `YES`/`NO`, `sys.indexes.type_desc` as `CLUSTERED`/`NONCLUSTERED`) get a `*Display` lowercase property (`ColumnInfo.IsNullableDisplay`, `IndexInfo.IndexTypeDisplay`) to match the Columns panel's lowercase style — bind to the `*Display` property in AXAML, never the raw field.
 
 ## Known Gotchas

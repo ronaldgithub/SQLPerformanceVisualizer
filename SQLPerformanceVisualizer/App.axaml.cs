@@ -19,6 +19,7 @@ public partial class App : Application
     {
         var services = new ServiceCollection();
         services.AddSingleton<ISqlServerService, SqlServerService>();
+        services.AddSingleton<IPlanAnalysisService, PlanAnalysisService>();
         services.AddSingleton<MainWindowViewModel>();
         var provider = services.BuildServiceProvider();
 
