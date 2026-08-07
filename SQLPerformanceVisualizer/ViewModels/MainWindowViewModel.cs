@@ -12,6 +12,7 @@ public partial class MainWindowViewModel : ViewModelBase
     public StatisticsViewModel StatisticsVm { get; }
     public StatisticDetailViewModel StatisticDetailVm { get; }
     public AiViewModel AiVm { get; }
+    public ExecutionPlansViewModel ExecutionPlansVm { get; }
 
     public MainWindowViewModel(ISqlServerService service, IPlanAnalysisService planAnalysisService)
     {
@@ -23,6 +24,7 @@ public partial class MainWindowViewModel : ViewModelBase
         StatisticsVm = new StatisticsViewModel(service);
         StatisticDetailVm = new StatisticDetailViewModel(service);
         AiVm = new AiViewModel(service, planAnalysisService);
+        ExecutionPlansVm = new ExecutionPlansViewModel(planAnalysisService);
 
         ConnectVm.Connected += async (_, _) =>
             await DatabaseListVm.LoadAsync();

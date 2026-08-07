@@ -22,7 +22,10 @@ public class PlanAnalysisService : IPlanAnalysisService
         return path;
     }
 
-    public async Task<PlanAnalysisResult> AnalyzePlanAsync(string planPath, CancellationToken ct = default)
+    public Task<PlanAnalysisResult> AnalyzePlanAsync(string planPath, CancellationToken ct = default) =>
+        AnalyzePlanAsync(planPath, Path.ChangeExtension(planPath, ".md"), ct);
+
+    public async Task<PlanAnalysisResult> AnalyzePlanAsync(string planPath, string reportPath, CancellationToken ct = default)
     {
         var prompt =
             $"Use the query-plan-analysis skill to analyze the SQL Server execution plan file at {planPath}. " +
@@ -57,7 +60,7 @@ public class PlanAnalysisService : IPlanAnalysisService
             throw new InvalidOperationException(
                 $"claude exited with code {process.ExitCode}: {(string.IsNullOrWhiteSpace(stderr) ? markdown : stderr)}");
 
-        var reportPath = Path.ChangeExtension(planPath, ".md");
+        Directory.CreateDirectory(Path.GetDirectoryName(reportPath)!);
         await File.WriteAllTextAsync(reportPath, markdown, new UTF8Encoding(false), ct);
         return new PlanAnalysisResult(reportPath, markdown);
     }
