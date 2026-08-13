@@ -18,6 +18,7 @@ public partial class ExecutionPlansViewModel : ViewModelBase
     [ObservableProperty] private ObservableCollection<PlanFileRow> _planFiles = [];
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanAnalyze))]
+    [NotifyPropertyChangedFor(nameof(CanOpenReport))]
     private PlanFileRow? _selectedPlanFile;
     [ObservableProperty] private string? _errorMessage;
     [ObservableProperty] private string? _selectedPlanFilePath;
@@ -28,9 +29,11 @@ public partial class ExecutionPlansViewModel : ViewModelBase
     [ObservableProperty] private string? _runErrorMessage;
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanAnalyze))]
+    [NotifyPropertyChangedFor(nameof(CanOpenReport))]
     private bool _isAnalyzing;
 
     public bool CanAnalyze => SelectedPlanFile is not null && !IsAnalyzing;
+    public bool CanOpenReport => SelectedPlanFile is not null && !IsAnalyzing;
 
     private DateTime _runStarted;
     private readonly DispatcherTimer _elapsedTimer;
@@ -78,6 +81,26 @@ public partial class ExecutionPlansViewModel : ViewModelBase
         {
             PlanFiles = [];
             ErrorMessage = ex.Message;
+        }
+    }
+
+    [RelayCommand]
+    private async Task OpenAsync()
+    {
+        var row = SelectedPlanFile;
+        if (row is null) return;
+
+        RunErrorMessage = null;
+        var reportPath = Path.Combine(ResultsFolderPath, Path.GetFileNameWithoutExtension(row.FilePath) + ".md");
+        try
+        {
+            AnalysisReport = await _analysis.ReadReportAsync(reportPath);
+            row.IsAnalyzed = true;
+            StatusText = $"Opened existing report — {reportPath}";
+        }
+        catch (Exception ex)
+        {
+            RunErrorMessage = ex.Message;
         }
     }
 

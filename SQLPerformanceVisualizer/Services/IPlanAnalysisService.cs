@@ -1,3 +1,5 @@
+using SQLPerformanceVisualizer.Models;
+
 namespace SQLPerformanceVisualizer.Services;
 
 public record PlanAnalysisResult(string ReportPath, string Markdown);
@@ -8,4 +10,6 @@ public interface IPlanAnalysisService
     Task<string> SavePlanAsync(string database, long queryId, string planXml, string suffix, CancellationToken ct = default);
     Task<PlanAnalysisResult> AnalyzePlanAsync(string planPath, CancellationToken ct = default);
     Task<PlanAnalysisResult> AnalyzePlanAsync(string planPath, string reportPath, CancellationToken ct = default);
+    Task<string> ReadReportAsync(string reportPath, CancellationToken ct = default);
+    Task<ExecutionPlanTree> ParsePlanTreeAsync(string planPath, CancellationToken ct = default);
 }

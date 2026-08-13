@@ -13,6 +13,7 @@ public partial class MainWindowViewModel : ViewModelBase
     public StatisticDetailViewModel StatisticDetailVm { get; }
     public AiViewModel AiVm { get; }
     public ExecutionPlansViewModel ExecutionPlansVm { get; }
+    public ExecutionPlanAnimationViewModel ExecutionPlanAnimationVm { get; }
 
     public MainWindowViewModel(ISqlServerService service, IPlanAnalysisService planAnalysisService)
     {
@@ -25,6 +26,7 @@ public partial class MainWindowViewModel : ViewModelBase
         StatisticDetailVm = new StatisticDetailViewModel(service);
         AiVm = new AiViewModel(service, planAnalysisService);
         ExecutionPlansVm = new ExecutionPlansViewModel(planAnalysisService);
+        ExecutionPlanAnimationVm = new ExecutionPlanAnimationViewModel(planAnalysisService);
 
         ConnectVm.Connected += async (_, _) =>
             await DatabaseListVm.LoadAsync();
@@ -83,6 +85,14 @@ public partial class MainWindowViewModel : ViewModelBase
             if (table is null || db is null) return;
             await StatisticsVm.LoadAsync(db.Name, table.Schema, table.Name);
             StatisticsVm.MarkJustUpdated(statName);
+        };
+
+        ExecutionPlansVm.PropertyChanged += async (_, e) =>
+        {
+            if (e.PropertyName != nameof(ExecutionPlansViewModel.SelectedPlanFile)) return;
+            var row = ExecutionPlansVm.SelectedPlanFile;
+            if (row is null) return;
+            await ExecutionPlanAnimationVm.LoadAsync(row.FilePath);
         };
     }
 }

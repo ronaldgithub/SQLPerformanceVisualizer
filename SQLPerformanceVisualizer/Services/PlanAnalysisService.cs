@@ -1,5 +1,7 @@
 using System.Diagnostics;
 using System.Text;
+using System.Xml.Linq;
+using SQLPerformanceVisualizer.Models;
 
 namespace SQLPerformanceVisualizer.Services;
 
@@ -63,6 +65,20 @@ public class PlanAnalysisService : IPlanAnalysisService
         Directory.CreateDirectory(Path.GetDirectoryName(reportPath)!);
         await File.WriteAllTextAsync(reportPath, markdown, new UTF8Encoding(false), ct);
         return new PlanAnalysisResult(reportPath, markdown);
+    }
+
+    public async Task<string> ReadReportAsync(string reportPath, CancellationToken ct = default)
+    {
+        if (!File.Exists(reportPath))
+            throw new FileNotFoundException($"No analysis report found at {reportPath}. Run Analyze first.", reportPath);
+        return await File.ReadAllTextAsync(reportPath, ct);
+    }
+
+    public async Task<ExecutionPlanTree> ParsePlanTreeAsync(string planPath, CancellationToken ct = default)
+    {
+        await using var stream = File.OpenRead(planPath);
+        var doc = await XDocument.LoadAsync(stream, LoadOptions.None, ct);
+        return ShowPlanXmlParser.Parse(doc);
     }
 
     private static ProcessStartInfo BuildStartInfo(string planPath, string prompt)
